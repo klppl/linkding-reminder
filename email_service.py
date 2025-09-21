@@ -12,7 +12,7 @@ class EmailService:
     """Service for sending emails with HTML and plain text support."""
     
     def __init__(self, host: str, port: int, username: str, password: str, 
-                 sender: str, recipient: str):
+                 sender: str, recipient: str, public_url: str = ""):
         """Initialize the email service.
         
         Args:
@@ -22,6 +22,7 @@ class EmailService:
             password: SMTP password
             sender: Email sender address
             recipient: Email recipient address
+            public_url: Public URL for the Linkding instance
         """
         self.host = host
         self.port = port
@@ -29,6 +30,7 @@ class EmailService:
         self.password = password
         self.sender = sender
         self.recipient = recipient
+        self.public_url = public_url
     
     def _create_html_content(self, bookmarks: List[Dict[str, Any]], tags: List[str]) -> str:
         """Create HTML content for the email.
@@ -40,37 +42,33 @@ class EmailService:
         Returns:
             HTML content string
         """
+        # Create simple header
+        header_html = ""
+        if self.public_url:
+            header_html = f"""
+            <pre style="margin: 0; padding: 10px 0; border-bottom: 1px solid #ccc; font-family: monospace; font-size: 12px; color: #666;">
+BOOKMARK REMINDER
+Reminding you of the latest links at {self.public_url}
+            </pre>
+            """
+        
         if not bookmarks:
             return f"""
             <html>
-            <body>
-                <h2>📚 Linkding Bookmark Reminder</h2>
-                <p>No bookmarks found for tags: <strong>{', '.join(f"#{tag}" for tag in tags)}</strong></p>
-                <p><em>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>
+            <body style="font-family: monospace; margin: 0; padding: 20px; background: #fff; color: #000; font-size: 12px; line-height: 1.4;">
+                {header_html}
+                <pre style="margin: 20px 0;">
+No bookmarks found for tags: {', '.join(f"#{tag}" for tag in tags)}
+                </pre>
             </body>
             </html>
             """
         
         html_parts = [
             "<html>",
-            "<head>",
-            "<style>",
-            "body { font-family: Arial, sans-serif; margin: 20px; }",
-            "h2 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; }",
-            ".bookmark { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9; }",
-            ".bookmark-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }",
-            ".bookmark-title a { color: #007acc; text-decoration: none; }",
-            ".bookmark-title a:hover { text-decoration: underline; }",
-            ".bookmark-url { color: #666; font-size: 14px; margin-bottom: 5px; }",
-            ".bookmark-tags { color: #888; font-size: 12px; }",
-            ".tag { background-color: #e1ecf4; color: #39739d; padding: 2px 6px; border-radius: 3px; margin-right: 5px; }",
-            ".footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }",
-            "</style>",
-            "</head>",
-            "<body>",
-            f"<h2>📚 Linkding Bookmark Reminder</h2>",
-            f"<p>Found <strong>{len(bookmarks)}</strong> bookmarks for tags: <strong>{', '.join(f'#{tag}' for tag in tags)}</strong></p>",
-            "<hr>"
+            "<body style='font-family: monospace; margin: 0; padding: 20px; background: #fff; color: #000; font-size: 12px; line-height: 1.4;'>",
+            header_html,
+            f"<pre style='margin: 20px 0;'>{len(bookmarks)} bookmarks for {', '.join(f'#{tag}' for tag in tags)}</pre>"
         ]
         
         for bookmark in bookmarks:
@@ -79,29 +77,22 @@ class EmailService:
             bookmark_tags = bookmark.get("tag_names", [])
             query_tag = bookmark.get("_query_tag", "")
             
-            # Create clickable title
-            if url:
-                title_html = f'<a href="{url}" target="_blank">{title}</a>'
-            else:
-                title_html = title
+            # Clean URL - remove any tags that might be appended
+            if url and '#' in url:
+                url = url.split('#')[0]
             
-            # Format tags
-            tag_html = ""
+            # Format tags simply
+            tag_text = ""
             if bookmark_tags:
-                tag_html = " | Tags: " + " ".join([f'<span class="tag">{tag}</span>' for tag in bookmark_tags])
-            
+                tag_text = f" | {', '.join(bookmark_tags)}"
             html_parts.extend([
-                "<div class='bookmark'>",
-                f"<div class='bookmark-title'>{title_html}</div>",
-                f"<div class='bookmark-url'>{url}</div>",
-                f"<div class='bookmark-tags'>Found via: #{query_tag}{tag_html}</div>",
-                "</div>"
+                "<pre style='margin: 5px 0; padding: 2px 0;'>",
+                f"<a href='{url}' style='color: #0066cc; text-decoration: none;'>{title}</a> | #{query_tag}{tag_text}",
+                f"{url}",
+                "</pre>"
             ])
         
         html_parts.extend([
-            "<div class='footer'>",
-            f"<p><em>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>",
-            "</div>",
             "</body>",
             "</html>"
         ])
@@ -118,12 +109,22 @@ class EmailService:
         Returns:
             Plain text content string
         """
-        if not bookmarks:
-            return f"No bookmarks found for tags: {', '.join(f'#{tag}' for tag in tags)}"
+        # Create simple header
+        header_lines = []
+        if self.public_url:
+            header_lines = [
+                "BOOKMARK REMINDER",
+                f"Reminding you of the latest links at {self.public_url}",
+                "-" * 50,
+                ""
+            ]
         
-        lines = [
-            f"Found {len(bookmarks)} bookmarks for tags: {', '.join(f'#{tag}' for tag in tags)}",
-            "=" * 60
+        if not bookmarks:
+            return "\n".join(header_lines + [f"No bookmarks found for tags: {', '.join(f'#{tag}' for tag in tags)}"])
+        
+        lines = header_lines + [
+            f"{len(bookmarks)} bookmarks for {', '.join(f'#{tag}' for tag in tags)}",
+            ""
         ]
         
         for bookmark in bookmarks:
@@ -132,18 +133,18 @@ class EmailService:
             bookmark_tags = bookmark.get("tag_names", [])
             query_tag = bookmark.get("_query_tag", "")
             
+            # Clean URL - remove any tags that might be appended
+            if url and '#' in url:
+                url = url.split('#')[0]
+            
+            tag_text = ""
+            if bookmark_tags:
+                tag_text = f" | {', '.join(bookmark_tags)}"
+            
             lines.extend([
-                "",
-                title,
-                url,
-                f"Found via: #{query_tag}" + (f" | Tags: {', '.join(bookmark_tags)}" if bookmark_tags else ""),
-                "-" * 40
+                f"{title} | #{query_tag}{tag_text}",
+                url
             ])
-        
-        lines.extend([
-            "",
-            f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        ])
         
         return "\n".join(lines)
     
@@ -168,7 +169,7 @@ class EmailService:
                 msg["Subject"] = subject
             else:
                 tag_list = ", ".join(f"#{tag}" for tag in tags)
-                msg["Subject"] = f"Your Linkding Bookmark Reminder for tags: {tag_list}"
+                msg["Subject"] = f"Bookmarks: {tag_list}"
             
             # Create both plain text and HTML versions
             plain_text = self._create_plain_text_content(bookmarks, tags)

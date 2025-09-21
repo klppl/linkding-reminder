@@ -13,9 +13,10 @@ load_dotenv()
 
 # ---------- CONFIG ----------
 # Linkding
-LINKDING_URL   = os.getenv("LINKDING_URL", "http://192.168.50.5:9090")
-LINKDING_TOKEN = os.getenv("LINKDING_TOKEN")
-LINKDING_TAGS  = os.getenv("LINKDING_TAGS", "2do")
+LINKDING_URL        = os.getenv("LINKDING_URL", "http://192.168.50.5:9090")
+LINKDING_PUBLIC_URL = os.getenv("LINKDING_PUBLIC_URL", LINKDING_URL)
+LINKDING_TOKEN      = os.getenv("LINKDING_TOKEN")
+LINKDING_TAGS       = os.getenv("LINKDING_TAGS", "2do")
 
 # SMTP
 SMTP_HOST      = os.getenv("SMTP_HOST")
@@ -69,7 +70,8 @@ async def remind() -> None:
         username=SMTP_USERNAME,
         password=SMTP_PASSWORD,
         sender=SMTP_SENDER,
-        recipient=SMTP_RECIPIENT
+        recipient=SMTP_RECIPIENT,
+        public_url=LINKDING_PUBLIC_URL
     )
     
     try:
