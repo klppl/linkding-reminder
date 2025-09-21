@@ -1,0 +1,2 @@
+aiolinkding
+python-dotenv
